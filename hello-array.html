@@ -13,8 +13,7 @@
   }
   // Check for WebGPU support first by seeing if navigator.gpu exists.
   if (!navigator.gpu) {
-    const errorMessage = document.createElement('b');
-    errorMessage.innerText = 'This browser does not support WebGPU.';
+    write('<b>This browser does not support WebGPU.</b>');
     document.body.replaceChild(errorMessage, canvas);
   }
 
