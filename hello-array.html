@@ -24,19 +24,18 @@
   const device = await adapter.requestDevice();
 
   // We're goint to make a big array, fill it with data, and get a compute shader
-  // double each entry in the array.
+  // to double each entry in the array.
   const N = 1024 * 1024;
   // Compute shaders break down the work into chunks to be executed in parallel,
   // called "workgroups". Let's assume we can use a workgroup of 64 invocations.
   const workgroupSize = 64;
-  // Work is "dispatched" to a compute shader in whole number of workgroups.
+  // Work is "dispatched" to a compute shader in a whole number of workgroups.
   // Check that the work can be divided evenly.
   if ((N % workgroupSize) != 0) {
     throw "workgroupSize must divide N evenly, to make the dispatch logic work.";
   }
   const numWorkgroups = N / workgroupSize;
 
-  //
   const bytes_per_elem = 4; // 32-bit floats take up 4 bytes each
   const bufSize = bytes_per_elem * N;
 
@@ -88,15 +87,19 @@
 
   // Here's the compute shader.
   const shader = device.createShaderModule({code: `
-    // Declare buffer variable at a specific group and binding.
+    // Declare a buffer variable at a specific group and binding.
     // We'll both read and write to it, and we'll treat it as an array of 32-bit floats.
     @group(0) @binding(0) var<storage,read_write> buf: array<f32>;
 
+    // The workgroup size, used in @workgroup_size attribute on the entry point below.
+    // Set this via 'constants' at pipeline-creation time, to match what's on the API
+    // side. 
+    override workgroupSize: u32;
+
     // Declare the compute shader.
-    // Use the workgroup size that we said in the JavaScript side.
     // The code for shader is the work that *one* invocation does, it's already
-    // in the conceptual the "innner loop" of the parallel work load.
-    @compute @workgroup_size(${workgroupSize})
+    // in the conceptual the "inner loop" of the parallel work load.
+    @compute @workgroup_size(workgroupSize)
     fn doubler(@builtin(global_invocation_id) gid: vec3u) {
       // gid is @builtin(global_invocation_id) telling us the identity
       // of this invocation in the whole parallel workload (compute grid).
@@ -117,6 +120,7 @@
     compute: {
       module: shader, // The shader we created earlier.
       entryPoint: 'doubler',
+      constants: {workgroupSize: workgroupSize}, // set the 'override' in the shader.
     }
   });
   // Specify the buffer resources that we'll attach to the pipeline later.
